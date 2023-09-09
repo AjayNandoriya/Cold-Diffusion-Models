@@ -1,4 +1,4 @@
-from comet_ml import Experiment
+# from comet_ml import Experiment
 import math
 import copy
 import torch
@@ -44,7 +44,7 @@ def default(val, d):
 
 def cycle(dl):
     while True:
-        for data in dl:
+        for data in dl.dataset:
             yield data
 
 def num_to_groups(num, divisor):
@@ -512,7 +512,8 @@ class GaussianDiffusion(nn.Module):
             img = x
             t = t - 1
 
-        return X1_0s, X2_0s, X_ts
+        # return X1_0s, X2_0s, X_ts
+        return X1_0s, X_ts
 
     def q_sample(self, x_start, x_end, t):
         # simply use the alphas to interpolate
@@ -548,12 +549,14 @@ class Dataset_Aug1(data.Dataset):
         self.image_size = image_size
         self.paths = [p for ext in exts for p in Path(f'{folder}').glob(f'**/*.{ext}')]
 
+        def norm(t):
+            return t[None,:,:,:]*2-1
         self.transform = transforms.Compose([
             transforms.Resize((int(image_size*1.12), int(image_size*1.12))),
             transforms.RandomCrop(image_size),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Lambda(lambda t: (t * 2) - 1)
+            transforms.Lambda(norm)
         ])
 
     def __len__(self):
@@ -732,9 +735,12 @@ class Trainer(object):
         backwards = partial(loss_backwards, self.fp16)
 
         acc_loss = 0
+        # ic = 0
         while self.step < self.train_num_steps:
             u_loss = 0
             for i in range(self.gradient_accumulate_every):
+                # ic = (ic+1)%len(self.dl.dataset)
+                # data_1 = self.dl.dataset[ic]
                 data_1 = next(self.dl)
                 data_2 = torch.randn_like(data_1)
 
